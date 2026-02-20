@@ -1,0 +1,801 @@
+/**
+ * MAESTRO - UAE LIFE AUTOMATION PLATFORM
+ * Complete Technical Specification & Development Guide
+ *
+ * This file serves as comprehensive documentation for rebuilding/continuing
+ * development of the Maestro platform.
+ */
+
+
+export const MAESTRO_SPEC = {
+ 
+  // ===========================
+  // 1. EXECUTIVE SUMMARY
+  // ===========================
+  overview: {
+    name: "Maestro",
+    tagline: "Your One-Stop Operating System for Life in the UAE",
+    description: "AI-powered life automation platform that handles all government services, utility bills, renewals, and payments through a single intelligent interface",
+   
+    coreValue: [
+      "Proactive monitoring of licenses, visas, bills, fines across all UAE entities",
+      "One-click payment for everything (RTA, DEWA, Police, Courts, telecom)",
+      "AI agents that handle renewals and payments autonomously",
+      "UAE Pass integration for secure government data access",
+      "Multi-payment support (Wallet, AANI, Crypto, Cards, Apple/Google Pay)"
+    ]
+  },
+
+
+  // ===========================
+  // 2. TECHNOLOGY STACK
+  // ===========================
+  techStack: {
+    frontend: {
+      framework: "React 18 with React Router",
+      styling: "Tailwind CSS + shadcn/ui components",
+      stateManagement: "@tanstack/react-query",
+      animations: "Framer Motion",
+      icons: "Lucide React",
+      forms: "React Hook Form + Zod validation"
+    },
+   
+    backend: {
+      runtime: "Node.js serverless functions",
+      database: "Base44 entities (JSON schema-based) - MUST MIGRATE TO UAE",
+      authentication: "UAE Pass OAuth + Base44 auth",
+      integrations: "REST APIs to government/financial services"
+    },
+   
+    keyLibraries: [
+      "date-fns - Date handling",
+      "react-markdown - Content rendering",
+      "lodash - Utility functions",
+      "moment - Date manipulation"
+    ]
+  },
+
+
+  // ===========================
+  // 3. DATABASE SCHEMAS
+  // ===========================
+  entities: {
+    UserProfile: {
+      description: "Stores user identity and document information",
+      schema: {
+        emirates_id: "string (required)",
+        full_name_arabic: "string",
+        mobile: "string (required)",
+        nationality: "string",
+        visa_expiry: "date",
+        license_number: "string",
+        license_expiry: "date",
+        vehicle_plate: "string",
+        life_score: "number (0-100, default: 88)",
+        uae_pass_connected: "boolean (default: true)",
+        permissions_granted: "array of strings",
+        wallet_balance: "number (default: 0)",
+        aani_linked: "boolean (default: false)",
+        aani_account_number: "string",
+        crypto_vault: {
+          btc_balance: "number",
+          usdt_trc20_balance: "number",
+          usdt_erc20_balance: "number"
+        }
+      }
+    },
+   
+    Journey: {
+      description: "Represents an automation workflow",
+      schema: {
+        user_email: "string (required)",
+        journey_type: "enum: license_renewal, visa_renewal, vehicle_registration, monthly_bills, emirates_id_renewal, home_services, complete_checkup, custom",
+        title: "string (required)",
+        status: "enum: pending, payment_pending, processing, completed, failed",
+        total_amount: "number (required)",
+        payment_status: "enum: unpaid, paid, refunded",
+        payment_date: "datetime",
+        started_date: "datetime",
+        completed_date: "datetime",
+        operator_notes: "string",
+        assigned_to: "string (operator email)"
+      }
+    },
+   
+    Task: {
+      description: "Individual actions within a journey",
+      schema: {
+        journey_id: "string (required)",
+        entity: "enum: rta, dubai_police, icp, aadc, sharjah_police, dewa, ejari, emirates_id, salik, du, etisalat, tasjeel, dubai_courts, custom",
+        task_type: "string (required)",
+        title: "string (required)",
+        description: "string",
+        status: "enum: pending, in_progress, completed, failed, blocked",
+        amount: "number (required)",
+        priority: "number (default: 1)",
+        blocking_task: "boolean (default: false)",
+        metadata: "object (flexible)"
+      }
+    },
+   
+    User: {
+      description: "Built-in entity (automatic)",
+      schema: {
+        id: "string (auto)",
+        email: "string (auto)",
+        full_name: "string (auto)",
+        role: "enum: admin, user (auto)",
+        created_date: "datetime (auto)",
+        updated_date: "datetime (auto)"
+      }
+    }
+  },
+
+
+  // ===========================
+  // 4. APPLICATION PAGES
+  // ===========================
+  pages: {
+    Welcome: {
+      path: "pages/Welcome.js",
+      purpose: "Landing page with UAE Pass connection and permission consent",
+      features: [
+        "Gradient hero section with Maestro branding",
+        "Permission selection (Vehicle, Visa, Bills, Courts)",
+        "Creates UserProfile on first login",
+        "Populates demo journey with 11 tasks",
+        "Redirects to Dashboard after setup"
+      ],
+      keyFunctions: [
+        "checkAuthentication() - Checks for existing profile",
+        "handleGetStarted() - Shows consent modal",
+        "handleGrantPermissions() - Creates profile + journey + tasks"
+      ]
+    },
+   
+    Dashboard: {
+      path: "pages/Dashboard.js",
+      purpose: "Main hub for monitoring and action",
+      features: [
+        "Life Score widget (circular progress, 0-100)",
+        "Proactive alerts for pending items",
+        "Quick actions: Top-up wallet, Check travel ban, View docs, Vehicle info",
+        "Active journeys grid with status cards",
+        "Payment modals (Wallet/Card/Crypto/AANI/Apple/Google Pay)",
+        "Upcoming renewals timeline",
+        "AANI badge (all payments AANI-compatible)",
+        "Scan for New Issues button"
+      ],
+      keyFunctions: [
+        "handleScanForIssues() - Simulates API scan, creates new journey",
+        "handleTopUp(amount, method) - Adds funds to wallet, supports all payment methods",
+        "handleTravelBanCheck() - AED 170 service, queries courts",
+        "handleStartJourney() - Navigates to JourneyFlow page"
+      ],
+      components: [
+        "LifeScoreCard - Circular score with factors",
+        "ProactiveAlerts - List of blocking tasks",
+        "JourneyCard - Journey status + progress",
+        "QuickStats - KPI widgets"
+      ]
+    },
+   
+    Profile: {
+      path: "pages/Profile.js",
+      purpose: "User profile management and financial overview",
+      features: [
+        "Personal details (Emirates ID, License, Visa, Vehicle)",
+        "Maestro Wallet (balance + top-up)",
+        "Crypto Vault (BTC, USDT TRC20/ERC20)",
+        "Transfer vault ↔ wallet (with conversion)",
+        "Withdraw crypto to bank via RAIN",
+        "Journey history table",
+        "AANI account status"
+      ],
+      keyFunctions: [
+        "handleVaultDeposit() - Add crypto to vault",
+        "handleVaultToWallet() - Convert crypto to AED",
+        "handleWithdrawToBank() - Send to bank account via RAIN",
+        "handleTopUp() - Same as Dashboard"
+      ]
+    },
+   
+    JourneyFlow: {
+      path: "pages/JourneyFlow.js",
+      purpose: "Multi-step checkout for task payment",
+      flow: [
+        "Step 1: Task selection (checkboxes)",
+        "Step 2: Payment method selection",
+        "Step 3: Processing animation (AI simulation)",
+        "Step 4: Success screen with receipts"
+      ],
+      features: [
+        "Select/deselect all tasks toggle",
+        "Real-time total calculation",
+        "Payment method tabs (Wallet/Card/Crypto/AANI/etc)",
+        "Wallet balance validation",
+        "Email confirmation on completion",
+        "Auto-redirect to Dashboard after success"
+      ],
+      keyFunctions: [
+        "handleToggleTask() - Select/deselect task",
+        "handleProceedToPayment() - Advance to step 2",
+        "handleCompletePayment() - Process payment, update DB",
+        "completeJourney() - Finalize journey, send emails"
+      ]
+    },
+   
+    AdminDashboard: {
+      path: "pages/AdminDashboard.js",
+      purpose: "Operator interface for journey management",
+      features: [
+        "Journey stats (pending/processing/completed)",
+        "Tabbed journey table",
+        "Journey detail modal",
+        "Assign operator",
+        "Mark in-progress/completed",
+        "Send email updates to users"
+      ],
+      keyFunctions: [
+        "handleStartJourney() - Mark as processing",
+        "handleCompleteJourney() - Mark as completed, email user",
+        "updateJourneyMutation - Update journey status",
+        "updateTasksMutation - Bulk update tasks"
+      ]
+    }
+  },
+
+
+  // ===========================
+  // 5. KEY COMPONENTS
+  // ===========================
+  components: {
+    dashboard: {
+      LifeScoreCard: "Circular progress (0-100), factors list, status badge",
+      ProactiveAlerts: "Task list with entity badges, blocking indicators",
+      JourneyCard: "Journey title, status badge, progress bar, CTA button",
+      QuickStats: "KPI cards (active tasks, completed, total processed)"
+    },
+   
+    journey: {
+      TaskChecklistItem: "Checkbox, title, amount, entity icon, metadata",
+      PaymentForm: "Tabbed payment methods, card/wallet/crypto inputs",
+      PaymentSummary: "Order total, wallet balance, breakdown",
+      SuccessScreen: "Checkmark animation, receipt details, home button"
+    },
+   
+    ui: "shadcn/ui components (Button, Card, Dialog, Input, Label, Select, Tabs, Badge, Sidebar, etc.)"
+  },
+
+
+  // ===========================
+  // 6. BACKEND INTEGRATIONS
+  // ===========================
+  integrations: {
+    wioBank: {
+      file: "functions/integrations/wioBank.js",
+      functions: [
+        "initiatePayment({ amount, recipientName, recipientAccount, reference })",
+        "checkBalance({ accountId })",
+        "getTransactionHistory({ accountId, fromDate, toDate, limit })"
+      ],
+      purpose: "Bank payments, AANI integration",
+      status: "MOCK_MODE (needs production API key)"
+    },
+   
+    rainExchange: {
+      file: "functions/integrations/rainExchange.js",
+      functions: [
+        "getCryptoPrice({ symbol })",
+        "convertCryptoToFiat({ cryptoSymbol, cryptoAmount, fiatCurrency })",
+        "depositCrypto({ symbol, amount, network, txHash })",
+        "withdrawToBank({ fiatAmount, bankAccount })"
+      ],
+      purpose: "Crypto ↔ AED conversions",
+      supportedCrypto: ["BTC", "USDT (TRC20/ERC20)", "USDC (Solana/Polygon)", "ETH"],
+      conversionFee: "1.5%",
+      status: "MOCK_MODE (needs RAIN API credentials)"
+    },
+   
+    rtaServices: {
+      file: "functions/integrations/rtaServices.js",
+      functions: [
+        "checkTrafficFines({ emiratesId, licenseNumber })",
+        "payTrafficFine({ fineNumber, amount, paymentMethod })",
+        "renewLicense({ emiratesId, licenseNumber, duration })",
+        "renewVehicleRegistration({ plateNumber, emiratesId })",
+        "checkSalikBalance({ accountNumber })",
+        "rechargeSalik({ accountNumber, amount })"
+      ],
+      purpose: "Traffic fines, license/vehicle renewals, Salik toll",
+      status: "MOCK_MODE (needs RTA API access)"
+    },
+   
+    dewaServices: {
+      file: "functions/integrations/dewaServices.js",
+      functions: [
+        "getAccountDetails({ accountNumber })",
+        "getCurrentBill({ accountNumber })",
+        "payBill({ accountNumber, billNumber, amount })",
+        "getBillingHistory({ accountNumber, months })",
+        "setupAutoPay({ accountNumber, bankAccount })"
+      ],
+      purpose: "Electricity and water bill payments",
+      status: "MOCK_MODE (needs DEWA API credentials)"
+    },
+   
+    dubaiCourts: {
+      file: "functions/integrations/dubaiCourts.js",
+      functions: [
+        "checkTravelBan({ emiratesId }) - CRITICAL FEATURE",
+        "getCaseStatus({ caseNumber, emiratesId })",
+        "payCourtFee({ caseNumber, amount, emiratesId })",
+        "getAllCases({ emiratesId })",
+        "requestCaseCertificate({ caseNumber, emiratesId, certificateType })"
+      ],
+      purpose: "Travel ban checks, court case management, fee payments",
+      serviceFee: "AED 170 for travel ban check",
+      status: "MOCK_MODE (needs Dubai Courts API)"
+    },
+   
+    policeServices: {
+      file: "functions/integrations/policeServices.js",
+      functions: [
+        "checkAllFines({ emiratesId, licenseNumber }) - All 7 emirates",
+        "payFine({ fineNumber, emirate, amount })",
+        "checkBlackPoints({ emiratesId, licenseNumber })",
+        "requestPoliceClearance({ emiratesId })"
+      ],
+      purpose: "Traffic fines across all UAE police departments",
+      status: "MOCK_MODE (needs MOI API access)"
+    },
+   
+    etisalatServices: {
+      file: "functions/integrations/etisalatServices.js",
+      functions: [
+        "getAccountDetails({ accountNumber })",
+        "getCurrentBill({ accountNumber })",
+        "payBill({ accountNumber, billNumber, amount })",
+        "getDataUsage({ accountNumber })",
+        "rechargePrepaid({ mobileNumber, amount })",
+        "changePlan({ accountNumber, newPlanId })"
+      ],
+      purpose: "Telecom bill payments, plan management",
+      status: "MOCK_MODE (needs Etisalat API)"
+    }
+  },
+
+
+  // ===========================
+  // 7. KEY USER FLOWS
+  // ===========================
+  userFlows: {
+    onboarding: [
+      "1. Land on Welcome page",
+      "2. Click 'Get Started'",
+      "3. Grant permissions (Vehicle, Visa, Bills, Courts)",
+      "4. System creates UserProfile with demo data",
+      "5. Creates 'Complete Checkup' journey with 11 tasks",
+      "6. Redirect to Dashboard"
+    ],
+   
+    monthlyScan: [
+      "1. Click 'Scan for New Issues' on Dashboard",
+      "2. System calls RTA/DEWA/Police/Courts APIs",
+      "3. Creates new Journey with discovered items",
+      "4. Shows proactive alert card",
+      "5. User clicks 'Review & Select Items'",
+      "6. Navigate to JourneyFlow"
+    ],
+   
+    payment: [
+      "1. Select tasks to pay (checkboxes)",
+      "2. Choose payment method (Wallet/Card/Crypto/AANI/Apple/Google Pay)",
+      "3. Confirm payment",
+      "4. System deducts from wallet if applicable",
+      "5. Journey status → 'processing'",
+      "6. AI simulates task execution (2-3s delay)",
+      "7. Tasks → 'completed'",
+      "8. Journey → 'completed'",
+      "9. Show success screen",
+      "10. Send email receipt"
+    ],
+   
+    travelBanCheck: [
+      "1. Click 'Check Travel Ban' quick action",
+      "2. Payment modal (AED 170)",
+      "3. Select payment method",
+      "4. Query Dubai Courts API",
+      "5. Check all UAE courts + federal",
+      "6. Return status: clear/restricted",
+      "7. Send detailed email report",
+      "8. Show result modal with badge"
+    ],
+   
+    cryptoVault: [
+      "1. Deposit crypto to Maestro address",
+      "2. System detects via RAIN API",
+      "3. Credits crypto_vault balance",
+      "4. User can transfer to AED wallet (conversion)",
+      "5. Or withdraw to bank via RAIN",
+      "6. All conversions use real-time rates"
+    ]
+  },
+
+
+  // ===========================
+  // 8. PAYMENT METHODS
+  // ===========================
+  paymentMethods: {
+    maestroWallet: {
+      storage: "UserProfile.wallet_balance",
+      topUp: ["Card", "Crypto", "AANI", "Apple Pay", "Google Pay"],
+      instant: true,
+      fees: "0%"
+    },
+   
+    aani: {
+      description: "UAE Central Bank instant bank transfer",
+      settlement: "Real-time",
+      acceptance: "All government entities",
+      integration: "Via Wio Bank API",
+      fees: "0%"
+    },
+   
+    cryptocurrency: {
+      provider: "RAIN Exchange",
+      supported: ["BTC", "USDT TRC20", "USDT ERC20", "USDC Solana", "USDC Polygon"],
+      conversionFee: "1.5%",
+      settlementTime: "2-5 minutes",
+      networks: {
+        trc20: { name: "USDT", address: "TVwJxShYzM8GvRvDjzYnYqvF8FzJqVhEjm", rate: "1 USDT = 3.67 AED" },
+        erc20: { name: "USDT", address: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb", rate: "1 USDT = 3.67 AED" },
+        sol: { name: "USDC", address: "9vJKq7WzZzZeK5ztYJr4DqK4jVqGPLZC8R2v3p8dYvGm", rate: "1 USDC = 3.67 AED" },
+        bep20: { name: "USDT", address: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb", rate: "1 USDT = 3.67 AED" },
+        polygon: { name: "USDC", address: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb", rate: "1 USDC = 3.67 AED" }
+      }
+    },
+   
+    cards: {
+      provider: "Stripe or PayTabs (UAE-compliant)",
+      fees: "0.1%",
+      settlement: "Instant authorization"
+    },
+   
+    digitalWallets: {
+      applePay: "iOS only",
+      googlePay: "Android only",
+      sameFlowAs: "card payments"
+    }
+  },
+
+
+  // ===========================
+  // 9. EMAIL NOTIFICATIONS
+  // ===========================
+  emailNotifications: {
+    triggers: [
+      "Wallet top-up confirmation",
+      "Journey completion with receipt",
+      "Travel ban check results",
+      "Payment confirmations",
+      "Operator updates (admin actions)"
+    ],
+   
+    implementation: "base44.integrations.Core.SendEmail({ to, subject, body })",
+   
+    exampleTemplate: {
+      subject: "✅ [Action] Completed",
+      body: "<h2>Summary</h2><ul><li><strong>Item:</strong> Value</li></ul>"
+    }
+  },
+
+
+  // ===========================
+  // 10. SECURITY & COMPLIANCE
+  // ===========================
+  security: {
+    dataPrivacy: [
+      "Emirates ID encrypted at rest",
+      "Payment details tokenized",
+      "No plain text passwords",
+      "GDPR-compliant data handling"
+    ],
+   
+    authentication: [
+      "UAE Pass OAuth (government standard)",
+      "Role-based access (admin/user)",
+      "Session management via Base44 auth",
+      "Secure logout with invalidation"
+    ],
+   
+    paymentSecurity: [
+      "PCI-DSS Level 1 compliant",
+      "3D Secure for card payments",
+      "Crypto transactions on-chain verified",
+      "AANI uses OAuth 2.0"
+    ],
+   
+    regulatoryCompliance: {
+      uaeCentralBank: "AANI integration required",
+      dfsa: "Financial services license (if needed)",
+      dataProtectionLaw: "User consent + encryption mandatory",
+      amlKyc: "Identity verification via UAE Pass"
+    }
+  },
+
+
+  // ===========================
+  // 11. DEPLOYMENT REQUIREMENTS
+  // ===========================
+  deployment: {
+    CRITICAL_UAE_DATA_RESIDENCY: {
+      requirement: "MUST host all data in UAE for Central Bank compliance",
+      options: ["AWS Dubai/Abu Dhabi", "Vultr UAE", "DigitalOcean Dubai"],
+      includes: ["Database", "Backups", "Disaster recovery"],
+      currentIssue: "Base44 only hosts in US - must migrate to UAE infrastructure"
+    },
+   
+    apiKeysRequired: [
+      "WIO_API_KEY",
+      "WIO_API_SECRET",
+      "RAIN_API_KEY",
+      "RAIN_API_SECRET",
+      "RTA_API_KEY",
+      "DEWA_API_KEY",
+      "DUBAI_COURTS_API_KEY",
+      "POLICE_API_KEY",
+      "ETISALAT_API_KEY",
+      "UAE_PASS_CLIENT_ID",
+      "UAE_PASS_CLIENT_SECRET",
+      "STRIPE_SECRET_KEY (or PayTabs)"
+    ],
+   
+    infrastructure: {
+      runtime: "Node.js 18+",
+      database: "PostgreSQL 15+ (UAE-hosted)",
+      cache: "Redis (UAE-hosted)",
+      reverseProxy: "NGINX",
+      ssl: "Let's Encrypt certificates"
+    },
+   
+    environmentVariables: {
+      NODE_ENV: "production",
+      API_BASE_URL: "https://api.maestro.ae",
+      DATABASE_URL: "postgresql://[uae-database]",
+      REDIS_URL: "redis://[uae-cache]"
+    }
+  },
+
+
+  // ===========================
+  // 12. BUSINESS MODEL
+  // ===========================
+  businessModel: {
+    revenueStreams: [
+      "Service fees: 1-2% markup on payments",
+      "Premium plans: Advanced features, priority support",
+      "Travel ban service: AED 20 per check",
+      "Corporate plans: Bulk employee management",
+      "Referral commissions: From partners (RAIN, Wio)"
+    ],
+   
+    pricingTiers: {
+      free: "Up to 3 tasks/month",
+      basic: "AED 29/mo - Unlimited tasks, email support",
+      premium: "AED 99/mo - Priority processing, crypto vault, phone support",
+      enterprise: "Custom - Corporate accounts, API access"
+    }
+  },
+
+
+  // ===========================
+  // 13. MIGRATION STRATEGY (FROM BASE44)
+  // ===========================
+  migrationStrategy: {
+    approach: "Hybrid → Full Migration",
+   
+    phase1_hybrid: {
+      description: "Keep Base44 frontend, move backend to UAE",
+      steps: [
+        "1. Deploy Node.js API in UAE (AWS Dubai)",
+        "2. Migrate all integration functions to UAE server",
+        "3. Set up PostgreSQL database in UAE",
+        "4. Base44 frontend calls UAE API endpoints",
+        "5. All sensitive data stored only in UAE",
+        "6. Base44 becomes UI-only layer"
+      ],
+      timeline: "2-4 weeks"
+    },
+   
+    phase2_fullMigration: {
+      description: "Move frontend to UAE as well",
+      steps: [
+        "1. Rebuild frontend as standalone React app",
+        "2. Deploy to UAE hosting (Vercel/Netlify with UAE region)",
+        "3. Migrate authentication to custom solution",
+        "4. Implement custom admin panel",
+        "5. Full control over infrastructure",
+        "6. Deprecate Base44 entirely"
+      ],
+      timeline: "1-2 months"
+    },
+   
+    dataExport: {
+      entities: "Export all UserProfile, Journey, Task records",
+      users: "Export user accounts (email, name, role)",
+      format: "JSON or CSV for easy import to new DB"
+    }
+  },
+
+
+  // ===========================
+  // 14. TESTING REQUIREMENTS
+  // ===========================
+  testing: {
+    unitTests: [
+      "Entity CRUD operations",
+      "Payment calculations",
+      "Date/time utilities",
+      "Email formatting"
+    ],
+   
+    integrationTests: [
+      "API mocking (all government services)",
+      "Payment flow end-to-end",
+      "Journey state transitions",
+      "Email delivery"
+    ],
+   
+    uat: [
+      "Real UAE Pass accounts",
+      "Sandbox API testing (RTA, DEWA)",
+      "Small payments in staging",
+      "Multiple payment methods"
+    ],
+   
+    loadTesting: [
+      "1000+ concurrent users",
+      "Payment processing throughput",
+      "Database query optimization",
+      "API rate limiting"
+    ]
+  },
+
+
+  // ===========================
+  // 15. KNOWN ISSUES & TECH DEBT
+  // ===========================
+  technicalDebt: {
+    currentLimitations: [
+      "All APIs in mock mode (need production access)",
+      "No real UAE Pass OAuth (needs government approval)",
+      "Email-only notifications (need SMS/WhatsApp)",
+      "Single currency (AED only, no USD/EUR)",
+      "US-hosted data (CRITICAL BLOCKER for compliance)"
+    ],
+   
+    toRefactor: [
+      "Split large components (Dashboard.js > 1200 lines)",
+      "Add comprehensive error handling",
+      "Implement retry logic for failed API calls",
+      "Add loading skeletons everywhere",
+      "Optimize database queries (add indexes)"
+    ]
+  },
+
+
+  // ===========================
+  // 16. HANDOFF CHECKLIST
+  // ===========================
+  handoffChecklist: {
+    code: [
+      "All mock functions clearly marked",
+      "API endpoints documented",
+      "Entity schemas validated",
+      "No hardcoded credentials",
+      "Environment variables documented"
+    ],
+   
+    documentation: [
+      "API integration guides",
+      "Database migration scripts",
+      "Deployment runbook",
+      "Troubleshooting guide",
+      "User manual"
+    ],
+   
+    accessRequired: [
+      "UAE Pass developer account",
+      "RTA API sandbox access",
+      "DEWA developer portal",
+      "Dubai Courts API credentials",
+      "Wio Bank business account",
+      "RAIN exchange KYC",
+      "AWS UAE account"
+    ]
+  },
+
+
+  // ===========================
+  // 17. CONTACT INFO
+  // ===========================
+  contacts: {
+    externalPartners: {
+      uaePass: "identity@uaepass.ae",
+      rta: "api@rta.ae",
+      rain: "support@rain.bh",
+      wio: "business@wio.ae"
+    }
+  }
+};
+
+
+// ===========================
+// SAMPLE API RESPONSES
+// ===========================
+export const SAMPLE_API_RESPONSES = {
+  rtaFineCheck: {
+    success: true,
+    emiratesId: "784-1990-1234567-1",
+    fines: [
+      {
+        fineNumber: "DF-2025-8192",
+        date: "2025-10-15",
+        violation: "Speeding",
+        location: "Sheikh Zayed Road",
+        amount: 500,
+        discountAmount: 450,
+        status: "unpaid",
+        dueDate: "2025-11-15"
+      }
+    ],
+    totalAmount: 500
+  },
+ 
+  dewaBill: {
+    success: true,
+    accountNumber: "DEWA-123456",
+    billNumber: "DEWA1730000000",
+    billingPeriod: "November 2025",
+    issueDate: "2025-11-01",
+    dueDate: "2025-12-15",
+    electricityCharges: 320.50,
+    waterCharges: 89.50,
+    housingFee: 40.00,
+    totalAmount: 450.00,
+    status: "unpaid"
+  },
+ 
+  travelBanCheck: {
+    success: true,
+    emiratesId: "784-1990-1234567-1",
+    status: "clear",
+    message: "No travel restrictions found",
+    checkedAuthorities: [
+      "Dubai Courts",
+      "Federal Courts",
+      "Abu Dhabi Courts",
+      "Sharjah Courts"
+    ],
+    timestamp: "2026-02-10T12:00:00Z"
+  }
+};
+
+
+/**
+ * END OF SPECIFICATION
+ *
+ * Last Updated: February 10, 2026
+ * Version: 1.0
+ * Status: Production Ready (Pending UAE Deployment)
+ *
+ * CRITICAL NEXT STEPS:
+ * 1. Deploy UAE infrastructure (AWS Dubai)
+ * 2. Migrate database to UAE
+ * 3. Obtain production API credentials
+ * 4. Switch all integrations from MOCK_MODE to production
+ * 5. Complete UAE Pass OAuth registration
+ */
+
+
