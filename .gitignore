@@ -49,3 +49,11 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# AWS Deployment Secrets - DO NOT COMMIT
+terraform/terraform.tfvars
+.credentials.txt
+*.tfstate
+*.tfstate.*
+.terraform/
+tfplan
