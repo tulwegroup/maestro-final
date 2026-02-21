@@ -7,6 +7,10 @@ on:
       - master
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 env:
   AWS_REGION: me-central-1
   ECR_REPOSITORY: maestro
