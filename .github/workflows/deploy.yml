@@ -7,10 +7,6 @@ on:
       - master
   workflow_dispatch:
 
-permissions:
-  id-token: write
-  contents: read
-
 env:
   AWS_REGION: me-central-1
   ECR_REPOSITORY: maestro
@@ -29,7 +25,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::368331615566:role/maestro-github-actions
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -62,7 +59,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::368331615566:role/maestro-github-actions
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Install kubectl
@@ -82,7 +80,7 @@ jobs:
             --namespace=${{ env.NAMESPACE }} \
             --from-literal=DATABASE_URL="postgresql://maestro_admin:${{ secrets.DB_PASSWORD }}@maestro-cluster.cluster-c1m0cmy8agx9.me-central-1.rds.amazonaws.com:5432/maestro?sslmode=require" \
             --from-literal=NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}" \
-            --from-literal=NEXTAUTH_URL="https://maestro.app" \
+            --from-literal=NEXTAUTH_URL="https://maestropay.ae" \
             --from-literal=ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
