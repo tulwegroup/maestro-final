@@ -1,179 +1,129 @@
-// MAESTRO - Payment API
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
-import { logAudit, AUDIT_ACTIONS } from '@/lib/audit';
-import { generatePaymentReference } from '@/lib/crypto';
-import { nanoid } from 'nanoid';
+import { JourneyStatus, PaymentStatus, TaskStatus, PaymentMethod, TransactionType, TransactionStatus } from '@prisma/client';
 
-// Process payment
+// POST /api/payment - Process payment for journey
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
     const body = await request.json();
-    const { 
-      journeyId, 
-      amount, 
-      paymentMethod,
-      selectedTasks 
-    } = body;
-    
-    // Get user profile
-    const userProfile = await db.userProfile.findUnique({
-      where: { userId: user.id }
+    const { journeyId, taskIds, paymentMethod, amount } = body;
+
+    const user = await db.user.findFirst({
+      where: { email: 'demo@maestro.ae' },
+      include: { profile: true }
     });
-    
-    if (!userProfile) {
-      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
+
+    if (!user || !user.profile) {
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
     }
-    
-    // For wallet payments, check balance
-    if (paymentMethod === 'MAESTRO_WALLET') {
-      if (userProfile.walletBalance < amount) {
-        return NextResponse.json({ 
-          error: 'Insufficient wallet balance',
-          currentBalance: userProfile.walletBalance 
-        }, { status: 400 });
-      }
+
+    // Check wallet balance if using wallet
+    if (paymentMethod === 'MAESTRO_WALLET' && user.profile.walletBalance < amount) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Insufficient wallet balance' 
+      }, { status: 400 });
     }
-    
-    // Create transaction
-    const transaction = await db.transaction.create({
-      data: {
-        id: nanoid(),
-        userId: user.id,
-        type: 'JOURNEY_PAYMENT',
-        amount,
-        currency: 'AED',
-        paymentMethod: paymentMethod as any,
-        paymentReference: generatePaymentReference(),
-        journeyId,
-        status: paymentMethod === 'MAESTRO_WALLET' ? 'COMPLETED' : 'PENDING'
-      }
-    });
-    
-    // Deduct from wallet if using wallet
-    if (paymentMethod === 'MAESTRO_WALLET') {
-      await db.userProfile.update({
-        where: { userId: user.id },
+
+    // Start transaction
+    const result = await db.$transaction(async (tx) => {
+      // Create transaction record
+      const transaction = await tx.transaction.create({
         data: {
-          walletBalance: { decrement: amount }
+          userId: user.id,
+          type: TransactionType.JOURNEY_PAYMENT,
+          amount,
+          currency: 'AED',
+          paymentMethod: paymentMethod as PaymentMethod,
+          status: TransactionStatus.COMPLETED,
+          description: `Payment for journey ${journeyId}`,
+          paymentReference: `PAY-${Date.now()}`,
+          journeyId
         }
       });
-      
-      await logAudit({
-        userId: user.id,
-        action: AUDIT_ACTIONS.WALLET_DEDUCTED,
-        resource: 'wallet',
-        newValue: JSON.stringify({ amount, transactionId: transaction.id })
-      });
-    }
-    
-    // Update journey payment status
-    if (journeyId) {
-      await db.journey.update({
+
+      // Update journey
+      const journey = await tx.journey.update({
         where: { id: journeyId },
         data: {
-          paymentStatus: 'PAID',
+          status: JourneyStatus.PROCESSING,
+          paymentStatus: PaymentStatus.PAID,
           paymentMethod,
-          paymentReference: transaction.paymentReference,
-          paymentDate: new Date()
+          paymentDate: new Date(),
+          startedAt: new Date()
         }
       });
-      
-      // Update selected tasks
-      if (selectedTasks && selectedTasks.length > 0) {
-        await db.task.updateMany({
-          where: { 
-            id: { in: selectedTasks },
-            journeyId 
-          },
-          data: { status: 'IN_PROGRESS' }
+
+      // Update tasks
+      if (taskIds && taskIds.length > 0) {
+        await tx.task.updateMany({
+          where: { id: { in: taskIds } },
+          data: { status: TaskStatus.IN_PROGRESS }
         });
       }
-    }
-    
-    await logAudit({
-      userId: user.id,
-      action: AUDIT_ACTIONS.PAYMENT_COMPLETED,
-      resource: 'transaction',
-      resourceId: transaction.id,
-      newValue: JSON.stringify({ amount, method: paymentMethod, journeyId })
-    });
-    
-    return NextResponse.json({ 
-      success: true, 
-      transaction: {
-        id: transaction.id,
-        reference: transaction.paymentReference,
-        amount: transaction.amount,
-        status: transaction.status
-      }
-    });
-  } catch (error) {
-    console.error('Payment error:', error);
-    return NextResponse.json({ error: 'Payment failed' }, { status: 500 });
-  }
-}
 
-// Top up wallet
-export async function PUT(request: NextRequest) {
-  try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const body = await request.json();
-    const { amount, paymentMethod } = body;
-    
-    if (!amount || amount <= 0) {
-      return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
-    }
-    
-    // Create transaction
-    const transaction = await db.transaction.create({
+      // Deduct from wallet if applicable
+      if (paymentMethod === 'MAESTRO_WALLET') {
+        await tx.userProfile.update({
+          where: { userId: user.id },
+          data: { walletBalance: { decrement: amount } }
+        });
+      }
+
+      return { transaction, journey };
+    });
+
+    // Simulate async processing - mark tasks as completed after delay
+    setTimeout(async () => {
+      try {
+        await db.task.updateMany({
+          where: { journeyId },
+          data: { 
+            status: TaskStatus.COMPLETED,
+            completedAt: new Date()
+          }
+        });
+
+        await db.journey.update({
+          where: { id: journeyId },
+          data: {
+            status: JourneyStatus.COMPLETED,
+            completedAt: new Date()
+          }
+        });
+
+        // Audit log
+        await db.auditLog.create({
+          data: {
+            userId: user.id,
+            action: 'JOURNEY_COMPLETED',
+            resource: 'Journey',
+            resourceId: journeyId
+          }
+        });
+      } catch (err) {
+        console.error('Error completing journey:', err);
+      }
+    }, 3000);
+
+    // Audit log
+    await db.auditLog.create({
       data: {
-        id: nanoid(),
         userId: user.id,
-        type: 'WALLET_TOP_UP',
-        amount,
-        currency: 'AED',
-        paymentMethod: paymentMethod as any,
-        paymentReference: generatePaymentReference(),
-        status: 'COMPLETED'
+        action: 'PAYMENT_COMPLETED',
+        resource: 'Transaction',
+        resourceId: result.transaction.id,
+        newValue: JSON.stringify({ journeyId, amount, paymentMethod })
       }
     });
-    
-    // Update wallet balance
-    await db.userProfile.update({
-      where: { userId: user.id },
-      data: {
-        walletBalance: { increment: amount }
-      }
-    });
-    
-    await logAudit({
-      userId: user.id,
-      action: AUDIT_ACTIONS.WALLET_TOPUP,
-      resource: 'wallet',
-      newValue: JSON.stringify({ amount, transactionId: transaction.id })
-    });
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
       success: true,
-      transaction: {
-        id: transaction.id,
-        reference: transaction.paymentReference,
-        amount: transaction.amount
-      }
+      transaction: result.transaction,
+      journey: result.journey
     });
   } catch (error) {
-    console.error('Wallet top-up error:', error);
-    return NextResponse.json({ error: 'Top-up failed' }, { status: 500 });
+    console.error('Error processing payment:', error);
+    return NextResponse.json({ success: false, error: 'Failed to process payment' }, { status: 500 });
   }
 }

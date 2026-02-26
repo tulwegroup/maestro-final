@@ -296,3 +296,136 @@
 .status-info {
   color: oklch(0.55 0.15 230);
 }
+
+/* Mobile safe areas */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.safe-area-pt {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+/* Mobile-specific styles */
+@layer base {
+  /* Touch-friendly tap targets */
+  @media (max-width: 768px) {
+    button, 
+    a, 
+    [role="button"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+    
+    /* Larger touch targets for interactive elements */
+    .touch-target {
+      min-height: 48px;
+      min-width: 48px;
+    }
+    
+    /* Prevent text selection on interactive elements */
+    button, a {
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+    }
+    
+    /* Smooth scrolling for mobile */
+    html {
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Hide scrollbar on mobile for cleaner look */
+    .hide-scrollbar-mobile {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    
+    .hide-scrollbar-mobile::-webkit-scrollbar {
+      display: none;
+    }
+  }
+}
+
+/* Mobile card adjustments */
+@media (max-width: 640px) {
+  .card-mobile {
+    border-radius: 0.75rem;
+    margin: 0 -0.25rem;
+  }
+  
+  .card-mobile-content {
+    padding: 0.875rem;
+  }
+}
+
+/* Mobile bottom sheet animation */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* Pull to refresh indicator */
+.pull-indicator {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.pull-indicator.visible {
+  opacity: 1;
+}
+
+/* Mesh background gradient */
+.bg-mesh {
+  background: 
+    radial-gradient(ellipse at 20% 0%, oklch(0.97 0.01 250 / 0.4) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, oklch(0.97 0.01 180 / 0.3) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, oklch(0.98 0.005 75 / 0.2) 0%, transparent 70%),
+    oklch(0.985 0.002 75);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+.dark .bg-mesh {
+  background: 
+    radial-gradient(ellipse at 20% 0%, oklch(0.2 0.03 250 / 0.3) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, oklch(0.2 0.02 180 / 0.2) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, oklch(0.15 0.015 250 / 0.1) 0%, transparent 70%),
+    oklch(0.14 0.015 250);
+  background-attachment: fixed;
+}
+
+/* Button gradient */
+.btn-gradient {
+  background: linear-gradient(135deg, oklch(0.45 0.1 250) 0%, oklch(0.4 0.12 230) 50%, oklch(0.5 0.1 200) 100%);
+  border: none;
+  color: white;
+  transition: all 0.2s ease;
+}
+
+.btn-gradient:hover {
+  background: linear-gradient(135deg, oklch(0.5 0.11 250) 0%, oklch(0.45 0.13 230) 50%, oklch(0.55 0.11 200) 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px oklch(0.45 0.1 250 / 0.4);
+}
+
+.dark .btn-gradient {
+  background: linear-gradient(135deg, oklch(0.6 0.12 250) 0%, oklch(0.55 0.14 230) 50%, oklch(0.65 0.12 200) 100%);
+}
+
+.dark .btn-gradient:hover {
+  background: linear-gradient(135deg, oklch(0.65 0.13 250) 0%, oklch(0.6 0.15 230) 50%, oklch(0.7 0.13 200) 100%);
+  box-shadow: 0 4px 20px oklch(0.6 0.12 250 / 0.5);
+}
