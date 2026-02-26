@@ -1,0 +1,117 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: maestro-ingress
+  namespace: maestro
+  annotations:
+    kubernetes.io/ingress.class: "alb"
+    alb.ingress.kubernetes.io/scheme: "internet-facing"
+    alb.ingress.kubernetes.io/target-type: "ip"
+    alb.ingress.kubernetes.io/healthcheck-path: "/"
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "30"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "3"
+    # SSL Configuration
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}, {"HTTP": 80}]'
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:me-central-1:368331615566:certificate/maestropay-ae"
+    # Redirect HTTP to HTTPS
+    alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
+    # WAF Configuration (optional)
+    # alb.ingress.kubernetes.io/waf-acl-id: "waf-acl-id"
+spec:
+  ingressClassName: alb
+  rules:
+    - host: maestropay.ae
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: maestro-service
+                port:
+                  number: 80
+    - host: www.maestropay.ae
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: maestro-service
+                port:
+                  number: 80
+    - host: api.maestropay.ae
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: maestro-service
+                port:
+                  number: 80
+---
+# DNS Record ConfigMap for ExternalDNS
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: maestro-dns
+  namespace: maestro
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: maestropay.ae,www.maestropay.ae,api.maestropay.ae
+data:
+  dns-records: |
+    maestropay.ae A ALIAS
+    www.maestropay.ae CNAME maestropay.ae
+    api.maestropay.ae CNAME maestropay.ae
+---
+# Network Policy for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: maestro-network-policy
+  namespace: maestro
+spec:
+  podSelector:
+    matchLabels:
+      app: maestro
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: maestro
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 3000
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow HTTPS egress (APIs)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80
+    # Allow database connection
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+      ports:
+        - protocol: TCP
+          port: 5432

@@ -1,0 +1,112 @@
+name: MAESTRO CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: me-central-1
+  ECR_REPOSITORY: maestro
+  EKS_CLUSTER: maestro-cluster
+  NAMESPACE: maestro
+
+jobs:
+  build:
+    name: Build and Push Image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::368331615566:role/maestro-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to EKS
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::368331615566:role/maestro-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+
+      - name: Create namespace
+        run: kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create secrets
+        run: |
+          kubectl create secret generic maestro-secrets \
+            --namespace=${{ env.NAMESPACE }} \
+            --from-literal=DATABASE_URL="postgresql://maestro_admin:${{ secrets.DB_PASSWORD }}@maestro-cluster.cluster-c1m0cmy8agx9.me-central-1.rds.amazonaws.com:5432/maestro?sslmode=require" \
+            --from-literal=NEXTAUTH_SECRET="${{ secrets.NEXTAUTH_SECRET }}" \
+            --from-literal=NEXTAUTH_URL="https://maestro.app" \
+            --from-literal=ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create ECR pull secret
+        run: |
+          kubectl create secret docker-registry ecr-secret \
+            --namespace=${{ env.NAMESPACE }} \
+            --docker-server=368331615566.dkr.ecr.me-central-1.amazonaws.com \
+            --docker-username=AWS \
+            --docker-password=$(aws ecr get-login-password --region ${{ env.AWS_REGION }}) \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy application
+        run: |
+          export IMAGE_TAG=${{ github.sha }}
+          envsubst < k8s/deployment.yaml | kubectl apply -f -
+
+      - name: Wait for rollout
+        run: kubectl rollout status deployment/maestro-app -n ${{ env.NAMESPACE }} --timeout=300s
+
+      - name: Health check
+        run: |
+          kubectl wait --for=condition=ready pod -l app=maestro -n ${{ env.NAMESPACE }} --timeout=120s
+          echo "=========================================="
+          echo "DEPLOYMENT SUCCESSFUL!"
+          echo "=========================================="
+          kubectl get svc maestro-service -n ${{ env.NAMESPACE }}
