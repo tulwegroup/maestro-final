@@ -47,7 +47,7 @@ export const amountSchema = z.number()
 
 // Reference number
 export const referenceSchema = z.string()
-  .alnum()
+  .regex(/^[a-zA-Z0-9]+$/, 'Reference must contain only alphanumeric characters')
   .min(4, 'Reference too short')
   .max(50, 'Reference too long');
 

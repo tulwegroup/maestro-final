@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getProvidersStatus as getCryptoProviders, getUnifiedCryptoPrices } from '@/lib/crypto-provider';
+import { getPriceSourcesStatus as getCryptoProviders, getUnifiedCryptoPrices } from '@/lib/crypto-provider';
 import { getProvidersStatus as getBankingProviders, getAllAccounts, getTotalBalance } from '@/lib/banking-provider';
 
 /**
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
           getTotalBalance(),
         ]);
 
-        const cryptoProviders = getCryptoProviders();
+        const cryptoProviders = await getCryptoProviders();
         const bankingProviders = getBankingProviders();
 
         return NextResponse.json({
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
         });
 
       case 'providers':
-        const crypto = getCryptoProviders();
+        const crypto = await getCryptoProviders();
         const banking = getBankingProviders();
 
         return NextResponse.json({
