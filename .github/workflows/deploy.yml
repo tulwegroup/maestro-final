@@ -98,6 +98,10 @@ jobs:
           export IMAGE_TAG=${{ github.sha }}
           envsubst < k8s/deployment.yaml | kubectl apply -f -
 
+      - name: Force rollout restart
+        run: |
+          kubectl rollout restart deployment/maestro-app -n ${{ env.NAMESPACE }}
+
       - name: Wait for rollout
         run: kubectl rollout status deployment/maestro-app -n ${{ env.NAMESPACE }} --timeout=300s
 
@@ -107,4 +111,18 @@ jobs:
           echo "=========================================="
           echo "DEPLOYMENT SUCCESSFUL!"
           echo "=========================================="
+          kubectl get pods -n ${{ env.NAMESPACE }} -o wide
+          echo ""
+          echo "Image deployed:"
+          kubectl get deployment maestro-app -n ${{ env.NAMESPACE }} -o jsonpath='{.spec.template.spec.containers[0].image}'
+          echo ""
           kubectl get svc maestro-service -n ${{ env.NAMESPACE }}
+
+      - name: Verify DNS resolution
+        run: |
+          echo "Waiting for ingress to be ready..."
+          sleep 30
+          kubectl get ingress -n ${{ env.NAMESPACE }}
+          echo ""
+          echo "Ingress hostname:"
+          kubectl get ingress maestro-ingress -n ${{ env.NAMESPACE }} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'

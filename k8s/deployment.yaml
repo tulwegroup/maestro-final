@@ -39,7 +39,7 @@ spec:
       serviceAccountName: maestro-sa
       containers:
       - name: maestro
-        image: 368331615566.dkr.ecr.me-central-1.amazonaws.com/maestro:latest
+        image: 368331615566.dkr.ecr.me-central-1.amazonaws.com/maestro:${IMAGE_TAG:-latest}
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
