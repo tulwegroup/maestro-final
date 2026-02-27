@@ -3,8 +3,8 @@ import { NextResponse } from 'next/server'
 
 export default withAuth(
   function middleware(req) {
-    const { pathname } = req.nextUrl
-    const token = req.nextauth.token
+    const pathname = req.nextUrl?.pathname
+    const token = req.nextauth?.token
     
     // Admin routes protection
     if (pathname?.startsWith('/admin')) {
@@ -18,18 +18,30 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ token, pathname }) => {
-        // Ensure pathname exists
-        if (!pathname) return true
+        // Handle undefined pathname
+        const path = pathname || ''
         
-        // Public routes
-        const publicPaths = ['/', '/auth/signin', '/auth/signup', '/auth/error', '/api/auth', '/auth/uaepass', '/auth/unauthorized']
+        // Public routes that don't require authentication
+        const publicPaths = ['/', '/auth/signin', '/auth/signup', '/auth/error', '/auth/uaepass', '/auth/unauthorized']
+        const publicPrefixes = ['/api/auth', '/_next', '/favicon']
         
-        if (publicPaths.some(path => pathname === path || pathname.startsWith(path + '/'))) {
+        // Allow public paths
+        if (publicPaths.includes(path)) {
+          return true
+        }
+        
+        // Allow public prefixes
+        if (publicPrefixes.some(prefix => path.startsWith(prefix))) {
+          return true
+        }
+        
+        // Static files
+        if (path.includes('.') || path.startsWith('/_next')) {
           return true
         }
         
         // Admin routes require authentication
-        if (pathname.startsWith('/admin')) {
+        if (path.startsWith('/admin')) {
           return !!token
         }
         
