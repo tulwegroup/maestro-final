@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { 
   Zap, 
   Bell, 
@@ -11,7 +13,9 @@ import {
   CheckCircle,
   Loader2,
   Users,
-  ExternalLink
+  ExternalLink,
+  LogOut,
+  LogIn
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -80,6 +84,8 @@ interface Journey {
 }
 
 export default function MaestroDashboard() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [journeys, setJourneys] = useState<Journey[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -100,9 +106,16 @@ export default function MaestroDashboard() {
   
   // AI Assistant
   const [showAIAssistant, setShowAIAssistant] = useState(false);
-
+  
+  // Auth state
+  const isAuthenticated = status === 'authenticated';
+  const isLoadingAuth = status === 'loading';
+  const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'OPERATOR';
+  
   // Fetch initial data
   const fetchData = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
     try {
       const [profileRes, journeysRes] = await Promise.all([
         fetch('/api/profile'),
@@ -127,7 +140,7 @@ export default function MaestroDashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     fetchData();
@@ -256,13 +269,124 @@ export default function MaestroDashboard() {
     }
   ].filter(Boolean) as any[] : [];
 
-  if (isLoading) {
+  if (isLoadingAuth || isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-teal-600 mx-auto mb-4" />
           <p className="text-slate-600">Loading Maestro...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Show welcome page for non-authenticated users
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex flex-col">
+        {/* Header */}
+        <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200">
+          <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
+                <Zap className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="font-bold text-xl text-slate-900">MAESTRO</h1>
+                <p className="text-xs text-slate-500">UAE Life Automation</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => router.push('/auth/signin')}
+                className="border-teal-200 text-teal-600 hover:bg-teal-50"
+              >
+                <LogIn className="w-4 h-4 mr-2" />
+                Sign In
+              </Button>
+              <Button 
+                onClick={() => router.push('/auth/signup')}
+                className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700"
+              >
+                Get Started
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        {/* Hero Section */}
+        <main className="flex-1 flex items-center">
+          <div className="container mx-auto px-4 py-16">
+            <div className="max-w-4xl mx-auto text-center">
+              <h1 className="text-5xl md:text-6xl font-bold text-slate-900 mb-6">
+                Your One-Stop Operating System for{' '}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-500 to-emerald-600">
+                  Life in the UAE
+                </span>
+              </h1>
+              <p className="text-xl text-slate-600 mb-8 max-w-2xl mx-auto">
+                AI-powered life automation platform that handles all government services, 
+                utility bills, renewals, and payments through a single intelligent interface.
+              </p>
+              
+              <div className="flex flex-wrap justify-center gap-4 mb-12">
+                <Button 
+                  size="lg" 
+                  onClick={() => router.push('/auth/signup')}
+                  className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700"
+                >
+                  Get Started Free
+                </Button>
+                <Button size="lg" variant="outline" className="border-slate-300">
+                  Learn More
+                </Button>
+              </div>
+
+              {/* Features Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
+                <div className="bg-white/80 backdrop-blur border border-slate-200 rounded-xl p-6 text-left">
+                  <div className="w-12 h-12 rounded-lg bg-teal-50 flex items-center justify-center mb-4">
+                    <Shield className="w-6 h-6 text-teal-600" />
+                  </div>
+                  <h3 className="font-semibold text-slate-900 mb-2">UAE Pass Integration</h3>
+                  <p className="text-sm text-slate-600">Secure government authentication for all your services</p>
+                </div>
+                
+                <div className="bg-white/80 backdrop-blur border border-slate-200 rounded-xl p-6 text-left">
+                  <div className="w-12 h-12 rounded-lg bg-emerald-50 flex items-center justify-center mb-4">
+                    <CheckCircle className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <h3 className="font-semibold text-slate-900 mb-2">Proactive Monitoring</h3>
+                  <p className="text-sm text-slate-600">Automatic alerts for licenses, visas, and bill payments</p>
+                </div>
+                
+                <div className="bg-white/80 backdrop-blur border border-slate-200 rounded-xl p-6 text-left">
+                  <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center mb-4">
+                    <Zap className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <h3 className="font-semibold text-slate-900 mb-2">One-Click Payments</h3>
+                  <p className="text-sm text-slate-600">Pay all your UAE services with a single tap</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        {/* Footer */}
+        <footer className="border-t border-slate-200 bg-white">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-slate-500">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-teal-500" />
+                <span className="font-medium text-slate-700">MAESTRO</span>
+                <span>•</span>
+                <span>UAE Life Automation Platform</span>
+              </div>
+            </div>
+          </div>
+        </footer>
       </div>
     );
   }
@@ -297,13 +421,16 @@ export default function MaestroDashboard() {
               </Badge>
             )}
             
-            <Link href="/admin" target="_blank" className="hidden sm:flex">
-              <Button variant="outline" size="sm" className="border-teal-200 text-teal-600 hover:bg-teal-50">
-                <Users className="w-4 h-4 mr-1" />
-                Admin Portal
-                <ExternalLink className="w-3 h-3 ml-1" />
-              </Button>
-            </Link>
+            {/* Admin Portal - Only visible to admins */}
+            {isAdmin && (
+              <Link href="/admin" target="_blank" className="hidden sm:flex">
+                <Button variant="outline" size="sm" className="border-teal-200 text-teal-600 hover:bg-teal-50">
+                  <Users className="w-4 h-4 mr-1" />
+                  Admin Portal
+                  <ExternalLink className="w-3 h-3 ml-1" />
+                </Button>
+              </Link>
+            )}
             
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="w-5 h-5 text-slate-600" />
@@ -318,8 +445,13 @@ export default function MaestroDashboard() {
               <Settings className="w-5 h-5 text-slate-600" />
             </Button>
             
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center text-white font-medium">
-              {profile?.fullNameEnglish?.charAt(0) || 'M'}
+            {/* User Avatar & Sign Out */}
+            <div 
+              className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center text-white font-medium cursor-pointer"
+              onClick={() => signOut({ callbackUrl: '/' })}
+              title="Click to sign out"
+            >
+              {profile?.fullNameEnglish?.charAt(0) || session?.user?.name?.charAt(0) || 'M'}
             </div>
           </div>
         </div>
@@ -336,10 +468,13 @@ export default function MaestroDashboard() {
               <TabsTrigger value="journeys" className="data-[state=active]:bg-teal-50 data-[state=active]:text-teal-700">
                 Journeys
               </TabsTrigger>
-              <TabsTrigger value="admin" className="data-[state=active]:bg-teal-50 data-[state=active]:text-teal-700">
-                <Users className="w-4 h-4 mr-1" />
-                Admin
-              </TabsTrigger>
+              {/* Admin Tab - Only visible to admins */}
+              {isAdmin && (
+                <TabsTrigger value="admin" className="data-[state=active]:bg-teal-50 data-[state=active]:text-teal-700">
+                  <Users className="w-4 h-4 mr-1" />
+                  Admin
+                </TabsTrigger>
+              )}
             </TabsList>
           </Tabs>
         </div>
