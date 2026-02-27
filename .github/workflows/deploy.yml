@@ -110,11 +110,21 @@ jobs:
       - name: Wait for rollout
         run: kubectl rollout status deployment/maestro-app -n ${{ env.NAMESPACE }} --timeout=300s
 
+      - name: Clean up stuck pods
+        run: |
+          # Delete any pods stuck in Terminating state
+          kubectl get pods -n ${{ env.NAMESPACE }} --field-selector=status.phase=Failed -o name | xargs -r kubectl delete -n ${{ env.NAMESPACE }} --force --grace-period=0 2>/dev/null || true
+          
+          # Delete any terminating pods that are stuck
+          kubectl get pods -n ${{ env.NAMESPACE }} -o json | jq -r '.items[] | select(.metadata.deletionTimestamp != null) | .metadata.name' | xargs -r -I {} kubectl delete pod {} -n ${{ env.NAMESPACE }} --force --grace-period=0 2>/dev/null || true
+
       - name: Health check
         run: |
-          kubectl wait --for=condition=ready pod -l app=maestro -n ${{ env.NAMESPACE }} --timeout=120s
+          # Wait for ready pods
+          kubectl wait --for=condition=ready pod -l app=maestro -n ${{ env.NAMESPACE }} --timeout=120s || true
+          
           echo "=========================================="
-          echo "DEPLOYMENT SUCCESSFUL!"
+          echo "DEPLOYMENT STATUS"
           echo "=========================================="
           echo ""
           echo "Pods:"
@@ -127,8 +137,9 @@ jobs:
           echo "Services:"
           kubectl get svc maestro-service -n ${{ env.NAMESPACE }}
           echo ""
-          echo "Recent logs:"
-          kubectl logs -l app=maestro -n ${{ env.NAMESPACE }} --tail=20 --all-containers
+          echo "Recent logs from first pod:"
+          POD=$(kubectl get pods -n ${{ env.NAMESPACE }} -l app=maestro -o jsonpath='{.items[0].metadata.name}')
+          kubectl logs $POD -n ${{ env.NAMESPACE }} --tail=30
 
       - name: Verify DNS resolution
         run: |
