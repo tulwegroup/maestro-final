@@ -1,6 +1,5 @@
 import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import { db } from './db'
 import * as bcrypt from 'bcryptjs'
 
@@ -33,7 +32,6 @@ declare module 'next-auth/jwt' {
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(db),
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -47,8 +45,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         const user = await db.user.findUnique({
-          where: { email: credentials.email },
-          include: { profile: true }
+          where: { email: credentials.email }
         })
 
         if (!user || !user.isActive) {
@@ -66,16 +63,8 @@ export const authOptions: NextAuthOptions = {
             return null
           }
         } else {
-          // For regular users, check if they have a password set
-          // If not, they need to set one first
           return null
         }
-
-        // Update last login
-        await db.user.update({
-          where: { id: user.id },
-          data: { lastLoginAt: new Date() }
-        })
 
         return {
           id: user.id,
@@ -90,11 +79,6 @@ export const authOptions: NextAuthOptions = {
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  pages: {
-    signIn: '/auth/signin',
-    signOut: '/auth/signout',
-    error: '/auth/error',
-  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
@@ -108,27 +92,18 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id
         session.user.role = token.role
         
-        // Fetch UAE Pass status
-        const userProfile = await db.userProfile.findUnique({
-          where: { userId: token.id },
-          select: { uaePassConnected: true }
-        })
-        session.user.uaePassConnected = userProfile?.uaePassConnected || false
+        try {
+          const userProfile = await db.userProfile.findUnique({
+            where: { userId: token.id },
+            select: { uaePassConnected: true }
+          })
+          session.user.uaePassConnected = userProfile?.uaePassConnected || false
+        } catch {
+          session.user.uaePassConnected = false
+        }
       }
       return session
     }
   },
-  events: {
-    async signIn({ user }) {
-      // Log the sign in
-      await db.auditLog.create({
-        data: {
-          userId: user.id,
-          action: 'LOGIN_SUCCESS',
-          resource: 'auth',
-          resourceId: user.id
-        }
-      })
-    }
-  }
+  secret: process.env.NEXTAUTH_SECRET
 }
