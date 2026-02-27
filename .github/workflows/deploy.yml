@@ -95,8 +95,13 @@ jobs:
 
       - name: Deploy application
         run: |
-          export IMAGE_TAG=${{ github.sha }}
-          envsubst < k8s/deployment.yaml | kubectl apply -f -
+          # Apply the base deployment
+          kubectl apply -f k8s/deployment.yaml
+          
+          # Explicitly set the image with the new tag
+          kubectl set image deployment/maestro-app \
+            maestro=368331615566.dkr.ecr.me-central-1.amazonaws.com/maestro:${{ github.sha }} \
+            -n ${{ env.NAMESPACE }}
 
       - name: Force rollout restart
         run: |
@@ -111,12 +116,19 @@ jobs:
           echo "=========================================="
           echo "DEPLOYMENT SUCCESSFUL!"
           echo "=========================================="
+          echo ""
+          echo "Pods:"
           kubectl get pods -n ${{ env.NAMESPACE }} -o wide
           echo ""
           echo "Image deployed:"
           kubectl get deployment maestro-app -n ${{ env.NAMESPACE }} -o jsonpath='{.spec.template.spec.containers[0].image}'
           echo ""
+          echo ""
+          echo "Services:"
           kubectl get svc maestro-service -n ${{ env.NAMESPACE }}
+          echo ""
+          echo "Recent logs:"
+          kubectl logs -l app=maestro -n ${{ env.NAMESPACE }} --tail=20 --all-containers
 
       - name: Verify DNS resolution
         run: |
