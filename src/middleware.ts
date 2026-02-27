@@ -7,7 +7,7 @@ export default withAuth(
     const token = req.nextauth.token
     
     // Admin routes protection
-    if (pathname.startsWith('/admin')) {
+    if (pathname?.startsWith('/admin')) {
       if (token?.role !== 'ADMIN' && token?.role !== 'OPERATOR') {
         return NextResponse.redirect(new URL('/auth/unauthorized', req.url))
       }
@@ -18,10 +18,13 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ token, pathname }) => {
-        // Public routes
-        const publicPaths = ['/', '/auth/signin', '/auth/signup', '/auth/error', '/api/auth']
+        // Ensure pathname exists
+        if (!pathname) return true
         
-        if (publicPaths.some(path => pathname.startsWith(path))) {
+        // Public routes
+        const publicPaths = ['/', '/auth/signin', '/auth/signup', '/auth/error', '/api/auth', '/auth/uaepass', '/auth/unauthorized']
+        
+        if (publicPaths.some(path => pathname === path || pathname.startsWith(path + '/'))) {
           return true
         }
         
