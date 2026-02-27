@@ -41,6 +41,7 @@ import { JourneyPaymentFlow } from '@/components/maestro/journey-payment-flow';
 import { AdminDashboard } from '@/components/maestro/admin-dashboard';
 import { AIAssistant } from '@/components/maestro/ai-assistant';
 import { IntegrationStatusCard } from '@/components/maestro/integration-status-card';
+import { UAEPassCard } from '@/components/maestro/uaepass-card';
 
 // Types
 interface UserProfile {
@@ -50,6 +51,8 @@ interface UserProfile {
   lifeScore: number;
   walletBalance: number;
   uaePassConnected: boolean;
+  uaePassConnectedAt?: Date | null;
+  permissionsGranted?: string;
   aaniLinked: boolean;
   licenseExpiry: Date | null;
   visaExpiry: Date | null;
@@ -489,7 +492,7 @@ export default function MaestroDashboard() {
             <div className="mb-6 p-6 rounded-2xl bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-600 text-white shadow-xl shadow-teal-500/20">
               <div className="flex items-start justify-between flex-wrap gap-4">
                 <div>
-                  <h2 className="text-2xl font-bold">Good evening, {profile?.fullNameEnglish?.split(' ')[0] || 'Friend'}! 👋</h2>
+                  <h2 className="text-2xl font-bold">Good evening, {profile?.fullNameEnglish?.split(' ')[0] || session?.user?.name?.split(' ')[0] || 'Friend'}! 👋</h2>
                   <p className="text-teal-100 mt-1">
                     {allPendingTasks.length > 0 
                       ? `You have ${allPendingTasks.length} items requiring attention`
@@ -520,6 +523,27 @@ export default function MaestroDashboard() {
                 </div>
               </div>
             </div>
+
+            {/* UAE Pass Prompt Banner - Show if not connected */}
+            {!profile?.uaePassConnected && (
+              <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-200">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center flex-shrink-0">
+                    <Shield className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-slate-900">Link your UAE Pass</h3>
+                    <p className="text-sm text-slate-600">Connect UAE Pass to unlock all features and access government services instantly.</p>
+                  </div>
+                  <Button 
+                    onClick={() => router.push('/auth/uaepass')}
+                    className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 flex-shrink-0"
+                  >
+                    Link Now
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Main Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -565,7 +589,24 @@ export default function MaestroDashboard() {
 
               {/* Right Column */}
               <div className="space-y-6">
+                {/* UAE Pass Card - Show if not connected */}
+                {!profile?.uaePassConnected && (
+                  <UAEPassCard 
+                    isConnected={false}
+                  />
+                )}
+                
                 <LifeScoreCard score={profile?.lifeScore || 88} />
+                
+                {/* UAE Pass Status - Show if connected */}
+                {profile?.uaePassConnected && (
+                  <UAEPassCard 
+                    isConnected={true}
+                    connectedAt={profile?.uaePassConnectedAt ? new Date(profile.uaePassConnectedAt) : null}
+                    permissions={profile?.permissionsGranted ? profile.permissionsGranted.split(',') : []}
+                    onUnlink={fetchData}
+                  />
+                )}
                 
                 <WalletCard 
                   balance={profile?.walletBalance || 0} 
